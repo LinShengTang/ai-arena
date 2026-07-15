@@ -25,14 +25,13 @@ const QUICK_PROMPTS = {
 // with the real dynamically-fetched model list once verification succeeds.
 const GPT_FALLBACK_MODELS = [
   { id: 'gpt-5.6', label: 'GPT-5.6' },
-  { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
-  { id: 'gpt-4.1', label: 'GPT-4.1' },
-  { id: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
-  { id: 'gpt-4o', label: 'GPT-4o' },
-  { id: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+  { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
+  { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
+  { id: 'gpt-5.5', label: 'GPT-5.5' },
 ];
 
-const GPT_EXCLUDED_SUBSTRINGS = ['instruct', 'audio', 'realtime', 'image'];
+// Only GPT-5.5 and GPT-5.6 series models (e.g. gpt-5.6-sol/-terra/-luna) are offered.
+const GPT_ALLOWED_MODEL_PATTERN = /^gpt-5\.(5|6)/;
 
 /* ==========================================================================
    State
@@ -329,7 +328,7 @@ async function verifyGptAndFetchModels(apiKey) {
   }
   const ids = (data.data || [])
     .map((m) => m.id)
-    .filter((id) => id.includes('gpt') && !GPT_EXCLUDED_SUBSTRINGS.some((bad) => id.includes(bad)))
+    .filter((id) => GPT_ALLOWED_MODEL_PATTERN.test(id))
     .sort();
   return ids;
 }
