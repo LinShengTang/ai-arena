@@ -532,7 +532,7 @@ async function callGpt(history, systemPrompt) {
     },
     body: JSON.stringify({
       model: state.models.gpt,
-      max_tokens: 4096,
+      max_completion_tokens: 4096,
       messages,
     }),
   });
