@@ -33,6 +33,16 @@ const GPT_FALLBACK_MODELS = [
 // Only GPT-5.5 and GPT-5.6 series models (e.g. gpt-5.6-sol/-terra/-luna) are offered.
 const GPT_ALLOWED_MODEL_PATTERN = /^gpt-5\.(5|6)/;
 
+// Some GPT model snapshots reject the completion-token-limit parameter under
+// one name and require another (e.g. max_tokens vs max_completion_tokens),
+// and this can differ per model/snapshot. Rather than hardcoding a guess,
+// start with this default and let the API's own error message correct it.
+const GPT_TOKEN_PARAM_DEFAULT = 'max_completion_tokens';
+// Per-model parameter name discovered at runtime from the API's error
+// response, cached for the rest of this session so later calls for the
+// same model skip straight to the correct parameter.
+const gptTokenParamByModel = {};
+
 /* ==========================================================================
    State
    ========================================================================== */
@@ -519,27 +529,54 @@ async function callClaude(history, systemPrompt) {
   return (data.content || []).map((block) => block.text || '').join('');
 }
 
-async function callGpt(history, systemPrompt) {
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    ...history.map((m) => ({ role: m.role, content: m.content })),
-  ];
+function parseUnsupportedParamHint(message) {
+  if (!message) return null;
+  const match = message.match(/Unsupported parameter: '([\w.]+)'[\s\S]*?[Uu]se '([\w.]+)' instead/);
+  if (!match) return null;
+  return { unsupported: match[1], replacement: match[2] };
+}
+
+async function requestGptCompletion(model, messages, tokenParam) {
+  const body = { model, messages };
+  body[tokenParam] = 4096;
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${state.apiKeys.gpt}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      model: state.models.gpt,
-      max_completion_tokens: 4096,
-      messages,
-    }),
+    body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error((data.error && data.error.message) || `GPT API 錯誤（${res.status}）`);
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function callGpt(history, systemPrompt) {
+  const model = state.models.gpt;
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...history.map((m) => ({ role: m.role, content: m.content })),
+  ];
+
+  let tokenParam = gptTokenParamByModel[model] || GPT_TOKEN_PARAM_DEFAULT;
+  let { ok, status, data } = await requestGptCompletion(model, messages, tokenParam);
+
+  // The token-limit parameter name can differ per model snapshot. If the API
+  // rejects it and names the correct one in its own error message, retry
+  // once with that name instead of guessing.
+  if (!ok) {
+    const hint = parseUnsupportedParamHint(data.error && data.error.message);
+    if (hint && hint.unsupported === tokenParam && hint.replacement !== tokenParam) {
+      tokenParam = hint.replacement;
+      ({ ok, status, data } = await requestGptCompletion(model, messages, tokenParam));
+    }
   }
+
+  if (!ok) {
+    throw new Error((data.error && data.error.message) || `GPT API 錯誤（${status}）`);
+  }
+
+  gptTokenParamByModel[model] = tokenParam;
   return (data.choices && data.choices[0] && data.choices[0].message.content) || '';
 }
 
