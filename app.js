@@ -24,7 +24,7 @@ const QUICK_PROMPTS = {
 // Hardcoded fallback list shown before the GPT key is verified. Replaced
 // with the real dynamically-fetched model list once verification succeeds.
 const GPT_FALLBACK_MODELS = [
-  { id: 'gpt-5.4', label: 'GPT-5.4' },
+  { id: 'gpt-5.6', label: 'GPT-5.6' },
   { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
   { id: 'gpt-4.1', label: 'GPT-4.1' },
   { id: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
@@ -40,7 +40,7 @@ const GPT_EXCLUDED_SUBSTRINGS = ['instruct', 'audio', 'realtime', 'image'];
 
 const state = {
   apiKeys: { claude: '', gpt: '', gemini: '' },
-  models: { claude: 'claude-sonnet-4-6', gpt: 'gpt-5.4', gemini: 'gemini-3.5-flash' },
+  models: { claude: 'claude-sonnet-5', gpt: 'gpt-5.6', gemini: 'gemini-3.5-flash' },
   histories: { claude: [], gpt: [], gemini: [] },
   pdf: { name: '', text: '' },
   sending: false,
@@ -359,7 +359,7 @@ function populateGptModelSelect(ids, isFallback) {
       : id;
     select.appendChild(opt);
   });
-  const preferred = ids.includes('gpt-5.4') ? 'gpt-5.4' : ids[0];
+  const preferred = ids.includes('gpt-5.6') ? 'gpt-5.6' : ids[0];
   select.value = preferred;
   state.models.gpt = preferred;
   updateBadge('gpt');
